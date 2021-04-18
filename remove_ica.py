@@ -18,7 +18,9 @@ save_path=r'D:\code\code\eegemotion\test\outcome'
 low_pass=0.5
 high_pass=45
 componum=31 # ica component
-ica_threshold=0.7 # 0~1 
+ica_threshold=0.7 # 0~1
+pattern_subject_id=0
+pattern_ica_id=0 
 
 filename=[]
 mneraw=[]
@@ -88,12 +90,12 @@ def get_ica():
         
 
 def find_pattern():
-    global mneraw,icas,ica_pic_path
+    global mneraw,icas,ica_pic_path,pattern_ica_id,pattern_subject_id
 
     raw=mneraw[0]
     ica=icas[0]
 
-    fig1,fig2=corrmap(icas,template=(0,0),threshold=ica_threshold,show=False,label="blink")
+    fig1,fig2=corrmap(icas,template=(pattern_subject_id,pattern_ica_id),threshold=ica_threshold,show=False,label="blink")
     
     fig1.savefig(os.path.join(ica_pic_path,"blink_pattern.jpg"))
     print(type(fig2))
