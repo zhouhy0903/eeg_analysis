@@ -31,11 +31,16 @@ def read_fif():
         if not os.path.exists(save_path_person):
             os.makedirs(save_path_person)
         epochs=epochs[markernames]
+        #limit=[(0.2,0.9),(0,0.2),(0,0.7),(0,0.1),(0,0.1)]
+        bands = [[(0, 4, '01_Delta')], [(4, 8, '02_Theta')], [(8, 12, '03_Alpha')],
+         [(12, 30, '04_Beta')], [(30, 45, '05_Gamma')]]
+        limit=[(0,0.9),(0,0.2),(0,0.9),(0,0.6),(-0.2,0.2)]
         for markername in markernames:
-            print(markername)
-            fig=epochs[markername].plot_psd_topomap(normalize=True,show=False)
-            cur_path=os.path.join(save_path_person,markername+".jpg")
-            fig.savefig(cur_path)
+            for count,band in enumerate(bands):
+                print(markername)
+                fig=epochs[markername].plot_psd_topomap(bands=band,normalize=True,vlim=limit[count],show=False,cmap="Reds")
+                cur_path=os.path.join(save_path_person,markername+"_"+band[0][2]+".jpg")
+                fig.savefig(cur_path)
         """
         freqs = np.logspace(*np.log10([0.5, 45]), num=8)
         n_cycles = freqs / 2.  # different number of cycle per frequency
