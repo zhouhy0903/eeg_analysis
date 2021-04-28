@@ -7,8 +7,10 @@ import pandas as pd
 import re
 from mne.time_frequency import tfr_morlet, psd_multitaper, psd_welch
 
-path=r"D:\data\jxy\new\outcome\eeg_removeeye\*.fif"
-save_path=r"D:\data\jxy\new\outcome\eeg_removeeye\test"
+path_config=r"D:\data\jxy\new\outcome\eeg_removeeye\"
+
+path=os.path.join(path_config,"*.fif")
+save_path=os.path.join(path,"outcome")
 
 def init():
     if not os.path.exists(save_path):
@@ -20,6 +22,7 @@ def read_fif():
     files=glob(path)
     for f in files:
         data=mne.io.read_raw(f)
+        
         print(f)
         events,event_id=mne.events_from_annotations(data)
         #channel_names=data.channel_names
@@ -41,22 +44,8 @@ def read_fif():
                 fig=epochs[markername].plot_psd_topomap(bands=band,normalize=True,vlim=limit[count],show=False,cmap="Reds")
                 cur_path=os.path.join(save_path_person,markername+"_"+band[0][2]+".jpg")
                 fig.savefig(cur_path)
-        """
-        freqs = np.logspace(*np.log10([0.5, 45]), num=8)
-        n_cycles = freqs / 2.  # different number of cycle per frequency
-
-        power, itc = tfr_morlet(epochs["s9005"], freqs=freqs, n_cycles=n_cycles, use_fft=True,
-            return_itc=True, decim=3, n_jobs=1)
-        
-        channel=0
-        for channel in range(31):
-            power.plot([channel],baseline=(-3,3),mode='logratio')
-            cur_path=os.path.join(save_path,str(channel))
-            #plt.savefig(cur_path)
             break
-
         break
-    """
 
 init()
 read_fif()
