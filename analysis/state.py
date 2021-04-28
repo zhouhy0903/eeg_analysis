@@ -47,7 +47,7 @@ def save_state():
                 for l in lines[2:]:
                     fo.write(l)
 
-def get_state():
+def save_marker():
     global save_path_state,save_path_marker
     if not os.path.exists(save_path_marker):
         os.makedirs(save_path_marker)
@@ -70,8 +70,22 @@ def get_state():
         #    print(data.iloc[i]["markerText"])
         #print(re.findall(r".*\\(.*)",f))
         new.to_csv(os.path.join(save_path_marker,re.findall(r".*\\(.*)",f)[0]),index=False)
-init()
 
-if __name__=="__main__":
-    #save_state()
-    get_state()
+
+def get_state(num,period):
+    global save_path_state
+    if period>30:
+        raise Exception("period too large")
+    files_presave=glob(os.path.join(save_path_state,"*.csv"))
+    data=pd.read_csv(files_presave[num-1])
+    start_first_shoot=data[data["markerText"]=="StartNoEmotionalShot"].index[0]
+    stop_first_shoot=data[data["markerText"]=="StopNoEmotionalShot"].index[0]
+    print(data.columns)
+    data=data[start_first_shoot:stop_first_shoot+1][["leftEyeTargetPosition","rightEyeTargetPosition","averageEyeTargetPosition","time","markerText"]]
+    
+    data
+    
+    #data['rightEyeTargetPosition'].str[1:-1].str.split(',', expand=True).astype(float)
+
+    return data
+init()

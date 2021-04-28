@@ -14,6 +14,7 @@ save_path=os.path.join(path_config,"outcome")
 
 #需要提取的标签名称
 markernames=["s9003","s9004","s9005","s9006","s9007","s9008","s9009"]
+#功率谱脑地形图的上下幅值
 limit=[(0,0.9),(0,0.2),(0,0.9),(0,0.6),(-0.2,0.2)]
 
 def init():
@@ -26,11 +27,9 @@ def read_fif():
     files=glob(path)
     for f in files:
         data=mne.io.read_raw(f)
-        
         print(f)
         events,event_id=mne.events_from_annotations(data)
-        #channel_names=data.channel_names
-        print(data.info)
+        #print(data.info)
         epochs=mne.Epochs(data,events,event_id,tmin=-3,tmax=3,event_repeated='drop',preload=True)
         print(f[:-4])
         save_path_person=os.path.join(save_path,re.findall(r".*\\(.*)",f[:-4])[0])
