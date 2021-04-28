@@ -4,5 +4,4 @@ This repo includes the use of MNE(a package for analyzing human neurophysiologic
 
 ### remove_ica.py
 remove_ica.py can be used to process multiple eeg raw files to get blink-artifacts-removed eeg signal.
-[blink artifact remove readme.md]
-(https://github.com/zhouhy0903/eeg_analysis/blob/master/remove_blink/readme.md)
+[blink artifact remove readme.md](https://github.com/zhouhy0903/eeg_analysis/blob/master/remove_blink/readme.md)
