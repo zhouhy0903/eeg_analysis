@@ -80,12 +80,22 @@ def get_state(num,period):
     data=pd.read_csv(files_presave[num-1])
     start_first_shoot=data[data["markerText"]=="StartNoEmotionalShot"].index[0]
     stop_first_shoot=data[data["markerText"]=="StopNoEmotionalShot"].index[0]
-    print(data.columns)
+    #print(data.columns)
     data=data[start_first_shoot:stop_first_shoot+1][["leftEyeTargetPosition","rightEyeTargetPosition","averageEyeTargetPosition","time","markerText"]]
+    #print(data[data["markerText"]=="ShotOps"]["time"].tolist())
+    newdata=pd.DataFrame()
+    shottime=data[data["markerText"]=="ShotOps"]["time"].tolist()
     
-    data
+    for i in range(len(shottime)-1):
+        if shottime[i]+period>shottime[i+1]:
+            raise Exception("Period larger than shot intervals!")
     
-    #data['rightEyeTargetPosition'].str[1:-1].str.split(',', expand=True).astype(float)
-
-    return data
+    for i in shottime:
+        #print(i)
+        newdata=newdata.append(data[data["time"]<=i][data["time"]+period>i])
+    print(newdata.columns)
+    # get rid of useless data
+    newdata[["reyex","reyey","reyez"]]=newdata['rightEyeTargetPosition'].str[1:-1].str.split(',', expand=True).astype(float)
+    newdata=newdata.drop(["leftEyeTargetPosition","rightEyeTargetPosition","averageEyeTargetPosition"],axis=1)
+    return newdata
 init()
