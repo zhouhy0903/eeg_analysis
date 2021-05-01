@@ -74,6 +74,13 @@ def preprocess():
             traceback.print_exc()
             pass
 
+def get_raw_eeg(num):
+    global files
+    data=mne.io.read_raw_fif(files[num-1])
+    data=data.set_montage("standard_1020")
+    return data    
+
+
 def get_epoch_eeg(num):
     global path_eeg_save_h5 
     if len(path_eeg_save_h5)=="":

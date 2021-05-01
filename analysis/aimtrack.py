@@ -105,7 +105,14 @@ def get_aimtrack_feature(num):
     data=pd.read_csv(feature_files[num])
     return data
 
-    
+def get_aimtrack(num):
+    global save_droprepeat_path
+    print(save_droprepeat_path)
+    files_droprepeat=glob(os.path.join(save_droprepeat_path,"*.csv"))
+    print("reading aimtrack from {}".format(files_droprepeat[num-1]))
+    data=pd.read_csv(files_droprepeat[num-1])
+    return data
+
 init()
 if __name__=="__main__":
     if int(ifdroprepeat)==0:
@@ -116,4 +123,3 @@ if __name__=="__main__":
     # save_aimtrack_feature()
     print(get_aimtrack_feature(1))
     
-

@@ -21,8 +21,6 @@ def init():
 def get_score(num):
     global files
     num-=1
-    print(len(files))
-    print(num)
     print("Reading scores from {}".format(files[num]))
     data=pd.read_csv(files[num],index_col=0)
     data.columns=["first","second","nothing"]
