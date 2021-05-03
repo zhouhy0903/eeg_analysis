@@ -83,15 +83,23 @@ class ds(Dataset):
 
 
 def get_aeraeeg_psd(data_eeg):
-    def get_band(data):
+    def get_band(data,chname):
         p=Periodogram(data,sampling=1000)
         p.run()
         #p.plot(marker='o',c="red")
         #plt.xlim(0,40)
         #plt.ylim(-10,45)
         #plt.show()
-        #plt.plot(p.frequencies(),10*np.log10(p.psd))
-        #plt.show()
+        #plt.plot(p.frequencies(),10*np.log10(p.psd),color="orange")
+        """
+        plt.xlim(0,45)
+        plt.ylim(-10,45)
+        plt.xlabel("Frequency/Hz")
+        plt.ylabel("PSD $\mu V^2/Hz (dB)$")
+        plt.title(chname+" PSD (2s before shot)")
+        plt.show()
+        """
+
         frepsd=pd.DataFrame()
         frepsd["freq"]=p.frequencies()
         frepsd["psd"]=10*np.log10(p.psd)
@@ -107,18 +115,18 @@ def get_aeraeeg_psd(data_eeg):
     channel_names=data_eeg.columns[2:]
     psd_feature=[]
     for i in channel_names:
-        data=get_band(data_eeg[i].tolist())
+        data=get_band(data_eeg[i].tolist(),i)
         psd_feature.append(data)
 
     psd_feature_np=np.array(psd_feature).T
-    """
+    
     plt.imshow(psd_feature_np,cmap="PuBu")
     plt.colorbar(shrink=.92)
     plt.xticks(range(31),channel_names.tolist(),rotation=90)
     plt.yticks([0,1,2,3,4],["Delta","Theta","Alpha","Beta","Gamma"]) 
     plt.title("psd_mean~channel and band")
     plt.show()
-    """
+    
     return psd_feature_np.tolist()
 
 def get_data():
@@ -175,6 +183,10 @@ def get_data():
             pass
     print(low,high)
     return datax,datay
+
+def draw_pic():
+    data_eeg=get_epoch_eeg(1).drop(["condition"],axis=1)
+    get_aeraeeg_psd(data_eeg[data_eeg["epoch"]==0][-2000:])
 
 def train_test_model():
     pass
@@ -296,6 +308,6 @@ def save_input_data():
     print(x.shape,y.shape)
 
 #save_input_data()
-
-train_model()
+draw_pic()
+#train_model()
 #show_outcome(actual,predict)

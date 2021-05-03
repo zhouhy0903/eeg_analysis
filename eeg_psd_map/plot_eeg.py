@@ -8,7 +8,7 @@ import re
 from mne.time_frequency import tfr_morlet, psd_multitaper, psd_welch
 
 #修改路径为去除眼电后.fif目录文件
-path_config=r"D:\data\jxy\new\outcome\eeg_removeeye"
+path_config=r""
 path=os.path.join(path_config,"*.fif")
 save_path=os.path.join(path_config,"outcome")
 
@@ -36,8 +36,8 @@ def read_fif():
         if not os.path.exists(save_path_person):
             os.makedirs(save_path_person)
         epochs=epochs[markernames]
-        bands = [[(0, 4, '01_Delta')], [(4, 8, '02_Theta')], [(8, 12, '03_Alpha')],
-         [(12, 30, '04_Beta')], [(30, 45, '05_Gamma')]]
+        bands = [[(0, 4, 'Delta')], [(4, 8, 'Theta')], [(8, 12, 'Alpha')],
+         [(12, 30, 'Beta')], [(30, 45, 'Gamma')]]
 
         for markername in markernames:
             for count,band in enumerate(bands):

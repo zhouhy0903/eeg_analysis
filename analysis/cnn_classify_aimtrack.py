@@ -23,51 +23,57 @@ from tqdm import tqdm
 import pickle
 import math
 
-class ConvNet(nn.Module):
-    def __init__(self):
-        super(ConvNet,self).__init__()
-        self.conv1=nn.Conv2d(in_channels=3,out_channels=16,kernel_size=3,stride=1,padding=1)
-        self.conv2=nn.Conv2d(in_channels=16,out_channels=32,kernel_size=3,stride=1,padding=1)
-        self.conv3=nn.Conv2d(in_channels=32,out_channels=64,kernel_size=3,stride=2,padding=1)
-        self.mpool=nn.MaxPool2d(kernel_size=3)
-        self.conv4=nn.Conv2d(in_channels=64,out_channels=128,kernel_size=3,stride=2,padding=1)
-        self.linear1=nn.Linear(2304,100)
-        self.linear2=nn.Linear(100,2)
+class FCN_model(nn.Module):
+    def __init__(self,NumClassesOut,N_time,N_Features,N_LSTM_Out=128,
+            N_LSTM_layers = 1, Conv1_NF = 128, Conv2_NF = 256,Conv3_NF = 128, lstmDropP = 0.8, FC_DropP = 0.3,device="cuda"):
+        super(FCN_model,self).__init__()
+        
+        self.N_time = N_time
+        self.N_Features = N_Features
+        self.NumClassesOut = NumClassesOut
+        self.N_LSTM_Out = N_LSTM_Out
+        self.N_LSTM_layers = N_LSTM_layers
+        self.Conv1_NF = Conv1_NF
+        self.Conv2_NF = Conv2_NF
+        self.Conv3_NF = Conv3_NF
+        self.lstm = nn.LSTM(self.N_Features,self.N_LSTM_Out,self.N_LSTM_layers)
+        self.C1 = nn.Conv1d(self.N_Features,self.Conv1_NF,8)
+        self.C2 = nn.Conv1d(self.Conv1_NF,self.Conv2_NF,5)
+        self.C3 = nn.Conv1d(self.Conv2_NF,self.Conv3_NF,3)
+        self.BN1 = nn.BatchNorm1d(self.Conv1_NF)
+        self.BN2 = nn.BatchNorm1d(self.Conv2_NF)
+        self.BN3 = nn.BatchNorm1d(self.Conv3_NF)
+        self.relu = nn.ReLU()
+        self.lstmDrop = nn.Dropout(lstmDropP)
+        self.ConvDrop = nn.Dropout(FC_DropP)
+        self.FC = nn.Linear(self.Conv3_NF + self.N_LSTM_Out,self.NumClassesOut)
+        self.device=device
+    
+    def init_hidden(self):
+        
+        h0 = torch.zeros(self.N_LSTM_layers, self.N_time, self.N_LSTM_Out).to(self.device)
+        c0 = torch.zeros(self.N_LSTM_layers, self.N_time, self.N_LSTM_Out).to(self.device)
+        return h0,c0
+    
     def forward(self,x):
-        x=F.relu(self.conv1(x))
-        x=F.relu(self.conv2(x))
-        x=F.relu(self.conv3(x))
-        x=self.mpool(x)
-        x=F.relu(self.conv4(x))
         
-        x=x.view(-1,2304)
-        x=F.relu(self.linear1(x))
-        x=F.relu(self.linear2(x))
-        x = torch.sigmoid(x)
-        return x
-
-
-class AlexNet(nn.Module):
-    def __init__(self):
-        super(AlexNet,self).__init__()
+        # input x should be in size [B,T,F] , where B = Batch size
+        #                                         T = Time sampels
+        #                                         F = features
         
-        self.conv=nn.Sequential(
-            nn.Conv2d(6,48,3,1,2),#in-channels,out-channels,kernel-size,stride
-            nn.Conv2d(48,128,3,1,2),#stride=1,padding=2
-            nn.ReLU(),
-            nn.MaxPool2d(3,2),
-        )
-        self.fc=nn.Sequential(
-            nn.Linear(8704,100),
-            nn.ReLU(),
-            nn.Dropout(0.5),
-            nn.Linear(100,2)
-        )
-    def forward(self,img):
-        feature=self.conv(img)
-        feature=feature.view(-1,8704)
-        output=self.fc(feature)
-        return output
+        h0,c0 = self.init_hidden()
+        x1, (ht,ct) = self.lstm(x, (h0, c0))
+        x1 = x1[:,-1,:]
+        
+        x2 = x.transpose(2,1)
+        x2 = self.ConvDrop(self.relu(self.BN1(self.C1(x2))))
+        x2 = self.ConvDrop(self.relu(self.BN2(self.C2(x2))))
+        x2 = self.ConvDrop(self.relu(self.BN3(self.C3(x2))))
+        x2 = torch.mean(x2,2)
+        
+        x_all = torch.cat((x1,x2),dim=1)
+        x_out = self.FC(x_all)
+        return x_out
 
 class ds(Dataset):
     def __init__(self,x,y,n):
@@ -136,32 +142,35 @@ def get_data():
             data_state=get_state(i,3)
             data_eeg=get_epoch_eeg(i).drop(["condition"],axis=1)
             data_aimtrack=get_aimtrack(i)
+            data_aimtrack.drop(data_aimtrack[data_aimtrack["exp_num"]==2].index,inplace=True)
+            data_aimtrack.drop(["exp_num"],axis=1,inplace=True)
             """
             extract aimtrack data
             """
-            
-            
-            print(data_aimtrack)
-            break
-
-            if not (len(data_score)==len(data_eeg["epoch"].value_counts()) and len(data_score)==len(data_state[data_state["markerText"]=="ShotOps"])): continue
+            if not (len(data_score)==len(data_eeg["epoch"].value_counts()) and len(data_score)==len(data_state[data_state["markerText"]=="ShotOps"]) and len(data_score)==len(data_aimtrack["shoot_num"].value_counts())): continue
             print("yes")
             for j in range(len(data_score)):
-                """
                 if data_score[j]>9.5:
+                    curaimtrackx=data_aimtrack[data_aimtrack["shoot_num"]==j+1]["x"][-40:].tolist()
+                    curaimtracky=data_aimtrack[data_aimtrack["shoot_num"]==j+1]["y"][-40:].tolist()
+                    if len(curaimtrackx)!=40 or len(curaimtracky)!=40: continue
+                    datax.append([curaimtrackx,curaimtracky])
                     datay.append(0)
+                    print(data_score[j])
                     high+=1
 
                 if data_score[j]<7.5:
+                    curaimtrackx=data_aimtrack[data_aimtrack["shoot_num"]==j+1]["x"][-40:].tolist()
+                    curaimtracky=data_aimtrack[data_aimtrack["shoot_num"]==j+1]["y"][-40:].tolist()
+                    if len(curaimtrackx)!=40 or len(curaimtracky)!=40: continue
+                    datax.append([curaimtrackx,curaimtracky])
                     datay.append(1)
                     low+=1
-                """
 
             print(len(datay),len(datax))
             #if len(datay)!=len(datax):
             #    raise Exception("length not matched")
         except Exception as e:
-            break
             traceback.print_exc()
             pass
     print(low,high)
@@ -191,15 +200,12 @@ def show_outcome(x,y):
 
 def train_model():
     num_epochs=100
-    learning_rate=0.00001
-    batch_size=5
-    channel_size=3
+    learning_rate=0.0001
+    batch_size=2
+    channel_size=1
     device=torch.device('cuda' if torch.cuda.is_available() else 'cpu')
     print(device)
-    model=ConvNet().to(device)
-    #model=AlexNet().to(device)
-
-
+    model=FCN_model(2,40,2).to(device)
     """
     dataxy=get_data()
     with open("psd_score.txt","wb") as f:
@@ -210,6 +216,7 @@ def train_model():
         dataxy = pickle.load(f)
     x=np.array(dataxy[0])
     y=np.array(dataxy[1])
+
     train_x_origin,test_x_origin,train_y_origin,test_y_origin=train_test_split(x,y)
 
     traindataset=ds(train_x_origin,train_y_origin,len(train_x_origin))
@@ -230,7 +237,7 @@ def train_model():
         cur_test_loss=[]
         right,total=0,0
         for i,(data,labels) in enumerate(train_loader):
-            data=data.to(device).reshape(-1,channel_size,31,31)
+            data=data.reshape(-1,40,2).to(device)
             data=data.type(torch.FloatTensor).to(device)
             y_pred=model(data).to(device)
             labels=labels.to(device).long()
@@ -248,7 +255,7 @@ def train_model():
 
         right,total=0,0
         for i,(test_x,test_y) in enumerate(test_loader):
-            test_x=test_x.reshape(-1,channel_size,31,31).type(torch.FloatTensor).to(device)
+            test_x=test_x.reshape(-1,40,2).type(torch.FloatTensor).to(device)
             test_y=test_y.to(device).long()
             out=model(test_x)
             l=loss(out,test_y)
@@ -291,8 +298,11 @@ def show_input_data():
         sum+=y[i]
         total+=1
     print(sum,total)
+    print(x[0],y[0])
+    for i in range(len(dataxy[0])):
+        print(len(dataxy[0][i]))
 #show_input_data()
-#save_input_data()
-get_data()
+save_input_data()
+#get_data()
 #train_model()
 #show_outcome(actual,predict)
