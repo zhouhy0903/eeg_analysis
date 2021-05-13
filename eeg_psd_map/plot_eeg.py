@@ -9,13 +9,13 @@ from mne.time_frequency import tfr_morlet, psd_multitaper, psd_welch
 from spectrum import Periodogram, TimeSeries
 
 #修改路径为去除眼电后.fif目录文件
-path_config=r"D:\data\jxy\data"
+path_config=r"D:\data\jxy\final\cini\exp3\outcome\eeg_removeeye"
 path=os.path.join(path_config,"*.fif")
 save_path=os.path.join(path_config,"outcome")
 
 #需要提取的标签名称
-markernames=["s9003","s9004","s9005","s9006","s9007","s9008","s9009"]
-channelnames=["Fz","F3","F4","P3"]
+markernames=["s9003","s9014","s9024","s9034","s9044","s9005","s9006","s9007","s9008","s9009"]
+#channelnames=["Fz","F3","F4","P3"]
 #功率谱脑地形图的上下幅值
 limit=[(0,0.9),(0,0.2),(0,0.9),(0,0.6),(-0.2,0.2)]
 
@@ -24,14 +24,13 @@ def init():
         os.makedirs(save_path)
 
 
-def save_psd():
+def save_psd1():
     global path,save_path,markernames,limit
     files=glob(path)
     for f in files:
         data=mne.io.read_raw(f)
         print(f)
         events,event_id=mne.events_from_annotations(data)
-        #print(data.info)
         epochs=mne.Epochs(data,events,event_id,tmin=-3,tmax=3,event_repeated='drop',preload=True)
         print(f[:-4])
         save_path_person=os.path.join(save_path,re.findall(r".*\\(.*)",f[:-4])[0])
@@ -48,6 +47,27 @@ def save_psd():
                 cur_path=os.path.join(save_path_person,markername+"_"+band[0][2]+".jpg")
                 fig.savefig(cur_path)
 
+def save_psd2():
+    global path,save_path,markernames,limit
+    files=glob(path)
+    for f in files:
+        data=mne.io.read_raw(f)
+        print(f)
+        events,event_id=mne.events_from_annotations(data)
+        epochs=mne.Epochs(data,events,event_id,tmin=-3,tmax=3,event_repeated='drop',preload=True)
+        print(f[:-4])
+        save_path_person=os.path.join(save_path,re.findall(r".*\\(.*)",f[:-4])[0])
+        if not os.path.exists(save_path_person):
+            os.makedirs(save_path_person)
+        epochs=epochs[markernames]
+        bands = [[(0, 4, 'Delta')], [(4, 8, 'Theta')], [(8, 12, 'Alpha')],
+         [(12, 30, 'Beta')], [(30, 45, 'Gamma')]]
+
+        for markername in markernames:
+            print(markername)
+            fig=epochs[markername].plot_psd_topomap(normalize=True,show=False,cmap="RdYlGn_r")
+            cur_path=os.path.join(save_path_person,markername+".jpg")
+            fig.savefig(cur_path)
 
 def save_channel_psd():
     global path,save_path,markernames,channelnames
@@ -88,5 +108,6 @@ def plot_channel_psd(data_eeg,channel):
 init()
 
 if __name__=="__main__":
-    #save_psd()
-    save_channel_psd()
+    save_psd1()
+    #save_psd2()
+    #save_channel_psd()

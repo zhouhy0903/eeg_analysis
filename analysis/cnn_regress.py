@@ -187,8 +187,9 @@ def train_model():
         for i,(data,labels) in enumerate(train_loader):
             data=data.to(device).reshape(-1,1,5,31)
             data=data.type(torch.FloatTensor).to(device)
-            labels=labels.to(device).long()
-            y_pred=model(data).to(device).long()
+            labels=labels.to(device)
+            y_pred=model(data).type(torch.FloatTensor).to(device)
+            labels=labels.type(torch.FloatTensor).to(device)
             l=loss(y_pred,labels)
             l.backward()
             optimizer.step()

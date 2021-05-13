@@ -12,15 +12,15 @@ from mne.preprocessing import corrmap
 
 warnings.filterwarnings("ignore")
 
-data_path=r'D:\code\code\eegemotion\test'
-save_path=r'D:\code\code\eegemotion\test\outcome'
+data_path=r'D:\data\jxy\final\cini\exp3'
+save_path=r'D:\data\jxy\final\cini\exp3\outcome'
 
 low_pass=0.5
 high_pass=45
 componum=31 # ica component
-ica_threshold=0.6 # 0~1
+ica_threshold=0.7 # 0~1
 pattern_subject_id=0
-pattern_ica_id=23 
+pattern_ica_id=6
 
 filename=[]
 mneraw=[]
