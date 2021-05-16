@@ -7,6 +7,9 @@ import numpy as np
 import pandas as pd
 from spectrum import Periodogram, TimeSeries
 from eegprocess import get_raw_eeg,get_epoch_eeg
+import numpy as np
+
+
 def draw_score_distribution():
     score=[]
     for i in range(1,60):
@@ -56,16 +59,18 @@ def discover_psd_difference():
                     lowscorenum+=1
             print(highscorenum)
             print(lowscorenum)
-            #fig1=highscore_epoch.plot_psd_topomap(show=False,normalize=True)
-            #fig2=lowscore_epoch.plot_psd_topomap(show=False,normalize=True)
-            #fig1.savefig(r"C:\Users\zhou\Desktop\毕业设计\mechanical\最终论文\pic\high_score_3s_test\high_score{}.jpg".format(i))
-            #fig2.savefig(r"C:\Users\zhou\Desktop\毕业设计\mechanical\最终论文\pic\low_score_3s_test\low_score{}.jpg".format(i))
+            fig1=highscore_epoch.plot_psd_topomap(show=False,normalize=False,cmap="RdBu_r")
+            fig2=lowscore_epoch.plot_psd_topomap(show=False,normalize=False,cmap="RdBu_r")
+            fig1.savefig(r"C:\Users\zhou\Desktop\毕业设计\mechanical\最终论文\pic\high_low1\high_score{}.jpg".format(i))
+            fig2.savefig(r"C:\Users\zhou\Desktop\毕业设计\mechanical\最终论文\pic\high_low1\low_score{}.jpg".format(i))
+            break
         except Exception as e:
             traceback.print_exc()
-    fig1=highscore_epoch.plot_psd_topomap(show=False,cmap="RdBu_r",normalize=True)
-    fig2=lowscore_epoch.plot_psd_topomap(show=False,cmap="RdBu_r",normalize=True)
-    fig1.savefig(r"C:\Users\zhou\Desktop\毕业设计\mechanical\最终论文\pic\high_score.jpg")
-    fig2.savefig(r"C:\Users\zhou\Desktop\毕业设计\mechanical\最终论文\pic\low_score.jpg")
+            break
+    #fig1=highscore_epoch.plot_psd_topomap(show=False,cmap="RdBu_r",normalize=True)
+    #fig2=lowscore_epoch.plot_psd_topomap(show=False,cmap="RdBu_r",normalize=True)
+    #fig1.savefig(r"C:\Users\zhou\Desktop\毕业设计\mechanical\最终论文\pic\high_low\high_score.jpg")
+    #fig2.savefig(r"C:\Users\zhou\Desktop\毕业设计\mechanical\最终论文\pic\high_low\low_score.jpg")
     print(highscorenum)
     print(lowscorenum)
 
@@ -201,6 +206,6 @@ def plot_channel_psd(data_eeg,channel):
     get_band(data_eeg.to_data_frame()[channel].tolist(),channel)
 
 
-#discover_psd_difference()
+discover_psd_difference()
 #discover_event_difference()
-discover_channel_psd_difference()
+#discover_channel_psd_difference()
