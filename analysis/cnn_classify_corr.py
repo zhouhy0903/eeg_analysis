@@ -39,7 +39,6 @@ class ConvNet(nn.Module):
         x=F.relu(self.conv3(x))
         x=self.mpool(x)
         x=F.relu(self.conv4(x))
-        
         x=x.view(-1,2304)
         x=F.relu(self.linear1(x))
         x=F.relu(self.linear2(x))

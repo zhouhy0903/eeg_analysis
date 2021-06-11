@@ -1,33 +1,29 @@
-from eegprocess import get_epoch_eeg,get_raw_eeg
-from score import get_score
-from state import get_state
-from aimtrack import get_aimtrack
-
 from torch import torch
 from torch.utils.data import Dataset,DataLoader
-
 from sklearn.model_selection import train_test_split
 import torch.nn as nn
 import torch.nn.functional as F
 import torchvision
-
 import time
 import traceback
 import mne
-
-from spectrum import Periodogram, TimeSeries
 import numpy as np
 import pandas as pd
 import matplotlib.pyplot as plt
 from tqdm import tqdm
 import pickle
 import math
+from glob import glob
+import os
+
+
+channel_names=None
+
 
 class FCN_model(nn.Module):
     def __init__(self,NumClassesOut,N_time,N_Features,N_LSTM_Out=128,
             N_LSTM_layers = 1, Conv1_NF = 128, Conv2_NF = 256,Conv3_NF = 128, lstmDropP = 0.8, FC_DropP = 0.3,device="cuda"):
         super(FCN_model,self).__init__()
-        
         self.N_time = N_time
         self.N_Features = N_Features
         self.NumClassesOut = NumClassesOut
@@ -48,32 +44,65 @@ class FCN_model(nn.Module):
         self.ConvDrop = nn.Dropout(FC_DropP)
         self.FC = nn.Linear(self.Conv3_NF + self.N_LSTM_Out,self.NumClassesOut)
         self.device=device
-    
     def init_hidden(self):
-        
         h0 = torch.zeros(self.N_LSTM_layers, self.N_time, self.N_LSTM_Out).to(self.device)
         c0 = torch.zeros(self.N_LSTM_layers, self.N_time, self.N_LSTM_Out).to(self.device)
         return h0,c0
-    
     def forward(self,x):
-        
-        # input x should be in size [B,T,F] , where B = Batch size
-        #                                         T = Time sampels
-        #                                         F = features
-        
+        # input x should be in size [B,T,F] , where B = Batch size, T = Time sampels, F = features
         h0,c0 = self.init_hidden()
         x1, (ht,ct) = self.lstm(x, (h0, c0))
         x1 = x1[:,-1,:]
-        
         x2 = x.transpose(2,1)
         x2 = self.ConvDrop(self.relu(self.BN1(self.C1(x2))))
         x2 = self.ConvDrop(self.relu(self.BN2(self.C2(x2))))
         x2 = self.ConvDrop(self.relu(self.BN3(self.C3(x2))))
         x2 = torch.mean(x2,2)
-        
         x_all = torch.cat((x1,x2),dim=1)
         x_out = self.FC(x_all)
         return x_out
+
+
+class ConvNet2(nn.Module):
+    def __init__(self):
+        super(ConvNet2,self).__init__()
+        self.conv1=nn.Conv2d(in_channels=1,out_channels=16,kernel_size=3,stride=1,padding=1)
+        self.conv2=nn.Conv2d(in_channels=16,out_channels=32,kernel_size=3,stride=1,padding=1)
+        self.conv3=nn.Conv2d(in_channels=32,out_channels=64,kernel_size=3,stride=2,padding=1)
+        self.mpool=nn.MaxPool2d(kernel_size=3)
+        self.conv4=nn.Conv2d(in_channels=64,out_channels=128,kernel_size=3,stride=2,padding=1)
+
+        self.linear1=nn.Linear(384,100)
+        self.linear2=nn.Linear(100,2)
+    def forward(self,x):
+        x=F.relu(self.conv1(x))
+        x=F.relu(self.conv2(x))
+        x=F.relu(self.conv3(x))
+        x=self.mpool(x)
+        x=F.relu(self.conv4(x))
+        x=x.view(-1,384)
+        x=F.relu(self.linear1(x))
+        x=F.relu(self.linear2(x))
+        x = torch.sigmoid(x)
+        return x
+
+class ConvNet1(nn.Module):
+    def __init__(self):
+        super(ConvNet1,self).__init__()
+        self.conv1=nn.Conv1d(in_channels=1,out_channels=5,kernel_size=1)
+        self.conv2=nn.Conv1d(in_channels=5,out_channels=10,kernel_size=1)
+        self.conv3=nn.Conv1d(in_channels=10,out_channels=20,kernel_size=1)
+        self.linear1=nn.Linear(620,2)
+
+    def forward(self,x):
+        x=F.relu(self.conv1(x))
+        x=F.relu(self.conv2(x))
+        x=F.relu(self.conv3(x))
+        x=x.view(-1,620)
+        x=F.relu(self.linear1(x))
+        x=torch.sigmoid(x)
+        return x
+
 
 class ds(Dataset):
     def __init__(self,x,y,n):
@@ -86,97 +115,34 @@ class ds(Dataset):
         return self.n
 
 
-
-
-def get_aeraeeg_psd(data_eeg):
-    def get_band(data):
-        p=Periodogram(data,sampling=1000)
-        p.run()
-        #p.plot(marker='o',c="red")
-        #plt.xlim(0,40)
-        #plt.ylim(-10,45)
-        #plt.show()
-        #plt.plot(p.frequencies(),10*np.log10(p.psd))
-        #plt.show()
-        frepsd=pd.DataFrame()
-        frepsd["freq"]=p.frequencies()
-        frepsd["psd"]=10*np.log10(p.psd)
-        frepsd.drop(frepsd[frepsd["freq"]>=45].index,inplace=True)
-        band=[[0,4],[4,8],[8,12],[12,30],[30,45]]
-        band_num=0
-        band_mean=[]
-        for i in range(len(band)):
-            band_data=frepsd[frepsd["freq"]<=band[i][1]][frepsd["freq"]>=band[i][0]]
-            band_mean.append(band_data["psd"].mean())
-        return band_mean
-    
-    channel_names=data_eeg.columns[2:]
-    psd_feature=[]
-    for i in channel_names:
-        data=get_band(data_eeg[i].tolist())
-        psd_feature.append(data)
-
-    psd_feature_np=np.array(psd_feature).T
-    plt.imshow(psd_feature_np,cmap="PuBu")
-    plt.colorbar(shrink=.92)
-    plt.xticks(range(31),channel_names.tolist(),rotation=90)
-    plt.yticks([0,1,2,3,4],["Delta","Theta","Alpha","Beta","Gamma"]) 
-    plt.title("psd_mean~channel and band")
-    plt.show()
-    
-    return psd_feature_np.tolist()
-
-def get_aeraeeg_corr(data_eeg):
-    return np.array(data_eeg[data_eeg.columns[2:]].corr()).tolist()
-
-
 def get_data():
-    datax=[]
-    datay=[]
-    high,low=0,0
-    for i in tqdm(range(1,60)):
-        if i==32: continue
-        try:
-            data_score=get_score(i)[0]
-            data_state=get_state(i,3)
-            data_eeg=get_epoch_eeg(i).drop(["condition"],axis=1)
-            data_aimtrack=get_aimtrack(i)
-            data_aimtrack.drop(data_aimtrack[data_aimtrack["exp_num"]==2].index,inplace=True)
-            data_aimtrack.drop(["exp_num"],axis=1,inplace=True)
-            """
-            extract aimtrack data
-            """
-            if not (len(data_score)==len(data_eeg["epoch"].value_counts()) and len(data_score)==len(data_state[data_state["markerText"]=="ShotOps"]) and len(data_score)==len(data_aimtrack["shoot_num"].value_counts())): continue
-            print("yes")
-            for j in range(len(data_score)):
-                if data_score[j]>9.5:
-                    curaimtrackx=data_aimtrack[data_aimtrack["shoot_num"]==j+1]["x"][-40:].tolist()
-                    curaimtracky=data_aimtrack[data_aimtrack["shoot_num"]==j+1]["y"][-40:].tolist()
-                    if len(curaimtrackx)!=40 or len(curaimtracky)!=40: continue
-                    datax.append([curaimtrackx,curaimtracky])
-                    datay.append(0)
-                    print(data_score[j])
-                    high+=1
+    global channel_names
+    datax,datay=[],[]
+    path=r"C:\Users\zhou\Desktop\毕业设计\mechanical\最终论文\pic\csv_t\-2_0\ttest\*"
 
-                if data_score[j]<7.5:
-                    curaimtrackx=data_aimtrack[data_aimtrack["shoot_num"]==j+1]["x"][-40:].tolist()
-                    curaimtracky=data_aimtrack[data_aimtrack["shoot_num"]==j+1]["y"][-40:].tolist()
-                    if len(curaimtrackx)!=40 or len(curaimtracky)!=40: continue
-                    datax.append([curaimtrackx,curaimtracky])
-                    datay.append(1)
-                    low+=1
+    files=glob(path)
+    highpsd,lowpsd=[],[]
+    for file in tqdm(files):
+        curpath=os.path.join(file,"*3.csv")
+        bandfiles=glob(curpath)
 
-            print(len(datay),len(datax))
-            #if len(datay)!=len(datax):
-            #    raise Exception("length not matched")
-        except Exception as e:
-            traceback.print_exc()
-            pass
-    print(low,high)
+        psd=[]
+        for bandf in bandfiles:
+            data=pd.read_csv(bandf,index_col=0)
+            if not channel_names:
+                channel_names=data["names"].tolist()
+            psd.extend(data["psd"].tolist())
+        datax.append(psd)
+        if file[-4:]=="high":
+            datay.append(1)
+        if file[-3:]=="low":
+            datay.append(0)
+    
+    datax_np=np.array(datax)
+    datay_np=np.array(datay)
+    print(datax_np.shape)
+    print(datay_np.shape)
     return datax,datay
-
-def train_test_model():
-    pass
 
 def show_outcome(x,y):
     xmean=np.mean(x)    
@@ -199,19 +165,15 @@ def show_outcome(x,y):
 
 def train_model():
     num_epochs=100
-    learning_rate=0.0001
-    batch_size=2
-    channel_size=1
+    learning_rate=0.0000001
+    batch_size=5
     device=torch.device('cuda' if torch.cuda.is_available() else 'cpu')
     print(device)
-    model=FCN_model(2,40,2).to(device)
-    """
-    dataxy=get_data()
-    with open("psd_score.txt","wb") as f:
-        pickle.dump(dataxy,f)
-    """
+    #model=FCN_model(2,40,2).to(device)
+    #model=ConvNet2().to(device)
+    model=ConvNet1().to(device)
     dataxy=[]
-    with open("D:/code/code/eegemotion/git/model/aimtrack_classify/aimtrack_score_classify.txt","rb") as f:
+    with open("D:/code/code/eegemotion/git/model/psd_new/psd_new.txt","rb") as f:
         dataxy = pickle.load(f)
     x=np.array(dataxy[0])
     y=np.array(dataxy[1])
@@ -236,7 +198,7 @@ def train_model():
         cur_test_loss=[]
         right,total=0,0
         for i,(data,labels) in enumerate(train_loader):
-            data=data.reshape(-1,40,2).to(device)
+            data=data.reshape(-1,1,31).to(device)
             data=data.type(torch.FloatTensor).to(device)
             y_pred=model(data).to(device)
             labels=labels.to(device).long()
@@ -254,7 +216,7 @@ def train_model():
 
         right,total=0,0
         for i,(test_x,test_y) in enumerate(test_loader):
-            test_x=test_x.reshape(-1,40,2).type(torch.FloatTensor).to(device)
+            test_x=test_x.reshape(-1,1,31).type(torch.FloatTensor).to(device)
             test_y=test_y.to(device).long()
             out=model(test_x)
             l=loss(out,test_y)
@@ -277,16 +239,31 @@ def train_model():
     plt.legend()
     plt.show()
     
-    torch.save(model.state_dict(),"D:/code/code/eegemotion/git/model/aimtrack_classify/model.pt")
+    torch.save(model.state_dict(),"D:/code/code/eegemotion/git/model/psd_new/model.pt")
+
+
+def check_data():
+    dataxy=[]
+    with open("D:/code/code/eegemotion/git/model/psd_new/psd_new.txt","rb") as f:
+        dataxy = pickle.load(f)
+    x=np.array(dataxy[0])
+    y=np.array(dataxy[1])
+
+    train_x_origin,test_x_origin,train_y_origin,test_y_origin=train_test_split(x,y)
+    print(x.shape)
+    print(y.shape)
+    print(x[0])
+    print(y[0])
+
 
 def save_input_data():
     dataxy=get_data()
-    with open("D:/code/code/eegemotion/git/model/aimtrack_classify/aimtrack_score_classify.txt","wb") as f:
+    with open("D:/code/code/eegemotion/git/model/psd_new/psd_new.txt","wb") as f:
         pickle.dump(dataxy,f)
 
 def show_input_data():
     dataxy=[]
-    with open("D:/code/code/eegemotion/git/model/aimtrack_classify/aimtrack_score_classify.txt","rb") as f:
+    with open("D:/code/code/eegemotion/git/model/psd_new/psd_new.txt","rb") as f:
         dataxy = pickle.load(f)
     x=np.array(dataxy[0])
     y=np.array(dataxy[1])
@@ -300,8 +277,10 @@ def show_input_data():
     print(x[0],y[0])
     for i in range(len(dataxy[0])):
         print(len(dataxy[0][i]))
+
 #show_input_data()
-save_input_data()
+#save_input_data()
 #get_data()
-#train_model()
+train_model()
+#check_data()
 #show_outcome(actual,predict)

@@ -71,6 +71,11 @@ def save_marker():
         #print(re.findall(r".*\\(.*)",f))
         new.to_csv(os.path.join(save_path_marker,re.findall(r".*\\(.*)",f)[0]),index=False)
 
+def get_state_raw(num):
+    global save_path_state
+    files_presave=glob(os.path.join(save_path_state,"*.csv"))
+    data=pd.read_csv(files_presave[num-1])
+    return data
 
 def get_state(num,period):
     global save_path_state
@@ -83,19 +88,19 @@ def get_state(num,period):
     #print(data.columns)
     data=data[start_first_shoot:stop_first_shoot+1][["leftEyeTargetPosition","rightEyeTargetPosition","averageEyeTargetPosition","time","markerText"]]
     #print(data[data["markerText"]=="ShotOps"]["time"].tolist())
-    newdata=pd.DataFrame()
+    newdata=[]
     shottime=data[data["markerText"]=="ShotOps"]["time"].tolist()
-    
+
     for i in range(len(shottime)-1):
         if shottime[i]+period>shottime[i+1]:
             raise Exception("Period larger than shot intervals!")
     
     for i in shottime:
         #print(i)
-        newdata=newdata.append(data[data["time"]<=i][data["time"]+period>i])
-    print(newdata.columns)
+        newdata.append(data[data["time"]<=i][data["time"]+period>i])
     # get rid of useless data
-    newdata[["reyex","reyey","reyez"]]=newdata['rightEyeTargetPosition'].str[1:-1].str.split(',', expand=True).astype(float)
-    newdata=newdata.drop(["leftEyeTargetPosition","rightEyeTargetPosition","averageEyeTargetPosition"],axis=1)
+    for i in range(len(shottime)):
+        newdata[i][["reyex","reyey","reyez"]]=newdata[i]['rightEyeTargetPosition'].str[1:-1].str.split(',', expand=True).astype(float)
+        newdata[i]=newdata[i].drop(["leftEyeTargetPosition","rightEyeTargetPosition","averageEyeTargetPosition"],axis=1)
     return newdata
 init()

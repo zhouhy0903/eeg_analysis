@@ -90,13 +90,16 @@ def get_aeraeeg_psd(data_eeg):
         #plt.xlim(0,40)
         #plt.ylim(-10,45)
         #plt.show()
-        #plt.plot(p.frequencies(),10*np.log10(p.psd),color="orange")
         """
+        plt.rcParams['font.family'] = ['sans-serif']
+        plt.rcParams['font.sans-serif'] = ['SimHei']
+        plt.rcParams['axes.unicode_minus']=False
+        plt.plot(p.frequencies(),10*np.log10(p.psd),color="orange")
         plt.xlim(0,45)
         plt.ylim(-10,45)
-        plt.xlabel("Frequency/Hz")
-        plt.ylabel("PSD $\mu V^2/Hz (dB)$")
-        plt.title(chname+" PSD (2s before shot)")
+        plt.xlabel("频率/Hz")
+        plt.ylabel("功率谱密度 $\mu V^2/Hz (dB)$")
+        plt.title(chname+" 功率谱密度与频率曲线")
         plt.show()
         """
 
@@ -124,7 +127,10 @@ def get_aeraeeg_psd(data_eeg):
     plt.colorbar(shrink=.92)
     plt.xticks(range(31),channel_names.tolist(),rotation=90)
     plt.yticks([0,1,2,3,4],["Delta","Theta","Alpha","Beta","Gamma"]) 
-    plt.title("psd_mean~channel and band")
+    plt.title("各导联各频段功率谱密度平均值")
+    plt.rcParams['font.family'] = ['sans-serif']
+    plt.rcParams['font.sans-serif'] = ['SimHei']
+    plt.rcParams['axes.unicode_minus']=False
     plt.show()
     
     return psd_feature_np.tolist()
@@ -145,6 +151,7 @@ def get_data():
                 if data_score[j]>9.5:
                     datay.append(0)
                     high+=1
+                    get_aeraeeg_psd(data_eeg[data_eeg["epoch"]==j][-3000:])
                     d6=get_aeraeeg_psd(data_eeg[data_eeg["epoch"]==j][-3000:-2500])
                     d5=get_aeraeeg_psd(data_eeg[data_eeg["epoch"]==j][-2500:-2000])
                     d4=get_aeraeeg_psd(data_eeg[data_eeg["epoch"]==j][-2000:-1500])
